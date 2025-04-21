@@ -1,0 +1,77 @@
+version: "3.7"
+
+services:
+  db:
+    image: mysql:5.7
+    restart: always
+    volumes:
+      - embaixadorton_db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    depends_on: [db]
+    ports:
+      - "127.0.0.1:${PMA_PORT}:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+
+  redis:
+    image: redis:alpine
+    restart: always
+    command: >
+      redis-server --requirepass ${REDIS_PASSWORD}
+                   --appendonly yes
+                   --maxmemory ${REDIS_MAXMEMORY}
+                   --maxmemory-policy allkeys-lru
+    volumes:
+      - embaixadorton_redis_data:/data
+
+  wordpress:
+    build: .
+    restart: always
+    depends_on: [db, redis]
+    volumes:
+      - embaixadorton_html:/var/www/html
+      - ./config/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_CONFIG_EXTRA: |
+        define( 'WP_REDIS_HOST', 'redis' );
+        define( 'WP_REDIS_PASSWORD', '${REDIS_PASSWORD}' );
+        define( 'WP_CACHE', true );
+    labels:
+      - "traefik.enable=true"
+      # Configuração HTTPS principal (sem www)
+      - "traefik.http.routers.wordpress.rule=Host(`${WORDPRESS_URL}`)"
+      - "traefik.http.routers.wordpress.entrypoints=websecure"
+      - "traefik.http.routers.wordpress.tls.certresolver=leresolver"
+      # Redireciona www para não-www
+      - "traefik.http.routers.wordpress-www.rule=Host(`${WORDPRESS_ALT_URL}`)"
+      - "traefik.http.routers.wordpress-www.entrypoints=websecure"
+      - "traefik.http.routers.wordpress-www.tls.certresolver=leresolver"
+      - "traefik.http.routers.wordpress-www.middlewares=redirect-to-non-www"
+      # Middlewares
+      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.regex=^https://www\\.(.+)"
+      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.replacement=https://$$1"
+      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.permanent=true"
+
+networks:
+  default:
+    external: true
+    name: ${NETWORK_NAME}
+
+volumes:
+  embaixadorton_db_data:
+  embaixadorton_html:
+  embaixadorton_redis_data:
