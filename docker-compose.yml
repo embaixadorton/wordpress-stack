@@ -5,7 +5,7 @@ services:
     image: mysql:5.7
     restart: always
     volumes:
-      - ${PROJECT_NAME}_db_data:/var/lib/mysql
+      - db_data:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -32,14 +32,14 @@ services:
                    --maxmemory ${REDIS_MAXMEMORY}
                    --maxmemory-policy allkeys-lru
     volumes:
-      - ${PROJECT_NAME}_redis_data:/data
+      - redis_data:/data
 
   wordpress:
     build: .
     restart: always
     depends_on: [db, redis]
     volumes:
-      - ${PROJECT_NAME}_html:/var/www/html
+      - html:/var/www/html
       - ./config/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
     environment:
       WORDPRESS_DB_HOST: db:3306
@@ -52,16 +52,13 @@ services:
         define( 'WP_CACHE', true );
     labels:
       - "traefik.enable=true"
-      # Site principal (sem www)
       - "traefik.http.routers.wordpress.rule=Host(`${WORDPRESS_URL}`)"
       - "traefik.http.routers.wordpress.entrypoints=websecure"
       - "traefik.http.routers.wordpress.tls.certresolver=leresolver"
-      # Redireciona www para não-www
       - "traefik.http.routers.wordpress-www.rule=Host(`${WORDPRESS_ALT_URL}`)"
       - "traefik.http.routers.wordpress-www.entrypoints=websecure"
       - "traefik.http.routers.wordpress-www.tls.certresolver=leresolver"
       - "traefik.http.routers.wordpress-www.middlewares=redirect-to-non-www"
-      # Middleware de redirecionamento
       - "traefik.http.middlewares.redirect-to-non-www.redirectregex.regex=^https://www\\.(.+)"
       - "traefik.http.middlewares.redirect-to-non-www.redirectregex.replacement=https://$$1"
       - "traefik.http.middlewares.redirect-to-non-www.redirectregex.permanent=true"
@@ -72,6 +69,6 @@ networks:
     name: ${NETWORK_NAME}
 
 volumes:
-  ${PROJECT_NAME}_db_data:
-  ${PROJECT_NAME}_html:
-  ${PROJECT_NAME}_redis_data:
+  db_data:
+  html:
+  redis_data:
