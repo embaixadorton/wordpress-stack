@@ -7,9 +7,7 @@
 
 FROM wordpress:php8.2-apache
 
-# 1 ▸ Instalar extensão Redis (compilada em C, mais rápida que Predis)
 RUN set -eux; \
     pecl install redis && docker-php-ext-enable redis
 
-# 2 ▸ Copiar o php.ini do repositório para dentro da imagem
 COPY config/php.ini /usr/local/etc/php/
