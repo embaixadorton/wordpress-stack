@@ -17,7 +17,7 @@ services:
     restart: always
     depends_on: [db]
     ports:
-      - "127.0.0.1:${PMA_PORT}:80"
+      - "${PMA_PORT}:80"
     environment:
       PMA_HOST: db
       PMA_USER: ${MYSQL_USER}
@@ -52,20 +52,17 @@ services:
         define( 'WP_CACHE', true );
     labels:
       - "traefik.enable=true"
-      # Configuração HTTPS principal (sem www)
       - "traefik.http.routers.${PROJECT_NAME}.rule=Host(`${WORDPRESS_URL}`)"
       - "traefik.http.routers.${PROJECT_NAME}.entrypoints=websecure"
       - "traefik.http.routers.${PROJECT_NAME}.tls.certresolver=leresolver"
-      # Redireciona www para não-www
       - "traefik.http.routers.${PROJECT_NAME}-www.rule=Host(`${WORDPRESS_ALT_URL}`)"
       - "traefik.http.routers.${PROJECT_NAME}-www.entrypoints=websecure"
       - "traefik.http.routers.${PROJECT_NAME}-www.tls.certresolver=leresolver"
       - "traefik.http.routers.${PROJECT_NAME}-www.middlewares=${PROJECT_NAME}-redirect"
-      # Middlewares
       - "traefik.http.middlewares.${PROJECT_NAME}-redirect.redirectregex.regex=^https://www\\.(.+)"
       - "traefik.http.middlewares.${PROJECT_NAME}-redirect.redirectregex.replacement=https://$$1"
       - "traefik.http.middlewares.${PROJECT_NAME}-redirect.redirectregex.permanent=true"
-
+      
 networks:
   default:
     external: true
